@@ -36,6 +36,14 @@ func checkTTL(deadline time.Time) error {
 }
 
 func (o *Orchestrator) ExecuteOrder(order domain.OrderRequest) error {
+	var compensations []domain.PurchaseRequest
+
+	defer func() {
+		for i := len(compensations) - 1; i >= 0; i-- {
+			o.compensate(compensations[i])
+		}
+	}()
+
 	quoteReq := domain.QuotationRequest{
 		Asset1: order.Asset1,
 		Asset2: order.Asset2,
@@ -84,8 +92,9 @@ func (o *Orchestrator) ExecuteOrder(order domain.OrderRequest) error {
 		return ErrPurchase1
 	}
 
+	compensations = append(compensations, purchReq1)
+
 	if err := checkTTL(deadline); err != nil {
-		o.compensate(purchReq1)
 		return err
 	}
 
@@ -98,16 +107,16 @@ func (o *Orchestrator) ExecuteOrder(order domain.OrderRequest) error {
 
 	purchRes2, err := o.purchaseService.ExecutePurchase(purchReq2)
 	if err != nil || !purchRes2.Success {
-		o.compensate(purchReq1)
 		return ErrPurchase2
 	}
 
+	compensations = append(compensations, purchReq2)
+
 	if err := checkTTL(deadline); err != nil {
-		o.compensate(purchReq1)
-		o.compensate(purchReq2)
 		return err
 	}
 
+	compensations = nil
 	return nil
 }
 
