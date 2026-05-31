@@ -28,7 +28,7 @@ func main() {
 
 	fmt.Println("\033[36m===================================================\033[0m")
 	fmt.Println("\033[36m   SISTEMA DE OPERAÇÃO - TRADING SAGA (CLI)        \033[0m")
-	fmt.Println("\033[36m   Alunos: Arthur Schurhaus, Rafael Vieira e Uriel \033[0m")
+	fmt.Println("\033[36m   Arthur Schurhaus, Rafael Vieira e Uriel Jaloto  \033[0m")
 	fmt.Println("\033[36m===================================================\033[0m")
 	fmt.Println("Comandos disponíveis:")
 	fmt.Println("  order <ativo1> <ativo2> <quantidade>")
