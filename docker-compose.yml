@@ -8,7 +8,6 @@ services:
         SERVICE_NAME: quotation
     ports:
       - "8081:8081"
-    network_mode: "host"
 
   risk:
     build:
@@ -17,7 +16,6 @@ services:
         SERVICE_NAME: risk
     ports:
       - "8082:8082"
-    network_mode: "host"
 
   purchase:
     build:
@@ -26,4 +24,3 @@ services:
         SERVICE_NAME: purchase
     ports:
       - "8083:8083"
-    network_mode: "host"
