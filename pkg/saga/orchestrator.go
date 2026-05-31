@@ -2,6 +2,7 @@ package saga
 
 import (
 	"errors"
+	"fmt"
 	"time"
 	"trading-saga/pkg/domain"
 )
@@ -117,5 +118,15 @@ func (o *Orchestrator) compensate(buyReq domain.PurchaseRequest) {
 		Qty:    buyReq.Qty,
 		Action: domain.ActionSell,
 	}
-	_, _ = o.purchaseService.ExecutePurchase(compReq)
+
+	res, err := o.purchaseService.ExecutePurchase(compReq)
+	if err != nil {
+		fmt.Printf("\033[41m\033[37m[ALERTA CRÍTICO] ERRO DE REDE NA COMPENSAÇÃO DE %s: %v\033[0m\n", buyReq.Asset, err)
+		return
+	}
+
+	if res == nil || !res.Success {
+		fmt.Printf("\033[41m\033[37m[ALERTA CRÍTICO] FALHA DE CONSISTÊNCIA: COMPENSAÇÃO DE %s REJEITADA OU MAL-SUCEDIDA!\033[0m\n", buyReq.Asset)
+		return
+	}
 }
