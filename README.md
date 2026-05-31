@@ -30,7 +30,6 @@ Na raiz do projeto, abra o terminal e execute:
 
 ```bash
 make docker-up
-
 ```
 
 *(Isso fará o build da imagem multi-stage e subirá os 3 serviços nas portas 8081, 8082 e 8083. Se não tiver o `make`, use: `docker compose up --build -d`)*
@@ -40,7 +39,6 @@ Em outro terminal (ou no mesmo, já que os containers estão em modo *detached*)
 
 ```bash
 make run-cli
-
 ```
 
 *(Se não tiver o `make`, use: `go run cmd/operation/main.go`)*
@@ -53,7 +51,6 @@ Para encerrar o ambiente ao final dos testes:
 
 ```bash
 make docker-down
-
 ```
 
 ---
