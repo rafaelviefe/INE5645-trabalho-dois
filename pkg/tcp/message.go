@@ -2,9 +2,14 @@ package tcp
 
 import (
 	"encoding/binary"
+	"errors"
 	"io"
 	"net"
 )
+
+var ErrPayloadTooLarge = errors.New("payload exceeds maximum allowed size")
+
+const maxPayloadSize = 10 * 1024 * 1024
 
 func ReadMessage(conn net.Conn) ([]byte, error) {
 	lengthBuf := make([]byte, 4)
@@ -13,6 +18,9 @@ func ReadMessage(conn net.Conn) ([]byte, error) {
 	}
 
 	length := binary.BigEndian.Uint32(lengthBuf)
+	if length > maxPayloadSize {
+		return nil, ErrPayloadTooLarge
+	}
 
 	msgBuf := make([]byte, length)
 	if _, err := io.ReadFull(conn, msgBuf); err != nil {
