@@ -4,7 +4,7 @@
 
 ---
 
-## 🛠️ Pré-requisitos (Instalação do Zero)
+## Pré-requisitos (Instalação do Zero)
 
 Para executar este projeto em uma máquina sem configurações prévias, você precisará das seguintes ferramentas:
 
@@ -21,7 +21,7 @@ Para executar este projeto em uma máquina sem configurações prévias, você p
 
 ---
 
-## 🚀 Como Executar o Projeto
+## Como Executar o Projeto
 
 A abordagem arquitetural escolhida mantém os três sistemas satélites (Cotação, Risco, Compra) rodando em containers Docker em background, enquanto o **Sistema de Operação (Orquestrador)** roda nativamente no seu terminal local. Isso garante uma interface de usuário (CLI) rica, interativa e com logs coloridos em tempo real.
 
@@ -58,7 +58,7 @@ make docker-down
 
 ---
 
-## 🧪 Validando os Casos de Uso (Simulação de Caos)
+## Validando os Casos de Uso (Simulação de Caos)
 
 O sistema foi arquitetado para ler variáveis de ambiente de um arquivo central `config.json`. Ao alterar este arquivo, podemos forçar o sistema a entrar nos cenários de falha exigidos. **Importante:** Se você alterar o `config.json` e quiser testar no Docker, é necessário rodar `make docker-up` novamente para reconstruir a imagem com o novo arquivo. Se for testar rodando tudo localmente (via `make run-quotation`, etc.), basta salvar o arquivo.
 
@@ -82,7 +82,7 @@ Abra o `config.json` e altere o parâmetro `"success_rate"` da propriedade `purc
 
 ---
 
-## 🧠 Arquitetura e Padrões de Projeto Distribuídos
+## Arquitetura e Padrões de Projeto Distribuídos
 
 Para atender ao escopo da disciplina e desacoplar o domínio da infraestrutura, o sistema implementa os seguintes padrões de projeto:
 
