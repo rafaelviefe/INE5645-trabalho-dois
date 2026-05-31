@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  quotation:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: quotation
+    ports:
+      - "8081:8081"
+    network_mode: "host"
+
+  risk:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: risk
+    ports:
+      - "8082:8082"
+    network_mode: "host"
+
+  purchase:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: purchase
+    ports:
+      - "8083:8083"
+    network_mode: "host"
