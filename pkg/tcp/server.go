@@ -2,6 +2,7 @@ package tcp
 
 import (
 	"net"
+	"time"
 )
 
 type HandlerFunc func(request []byte) []byte
@@ -43,6 +44,7 @@ func (s *Server) Start() error {
 				c.Close()
 			}()
 
+			c.SetReadDeadline(time.Now().Add(10 * time.Second))
 			req, err := ReadMessage(c)
 			if err != nil {
 				return
@@ -51,6 +53,7 @@ func (s *Server) Start() error {
 			res := s.handler(req)
 
 			if res != nil {
+				c.SetWriteDeadline(time.Now().Add(10 * time.Second))
 				_ = WriteMessage(c, res)
 			}
 		}(conn)
