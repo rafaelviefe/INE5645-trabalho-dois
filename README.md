@@ -90,17 +90,11 @@ Para atender ao escopo da disciplina e desacoplar o domínio da infraestrutura, 
 
 * A comunicação em rede foi construída totalmente do zero utilizando a primitiva `net` do Go, que abstrai as chamadas C nativas de sockets POSIX (`socket`, `bind`, `listen`, `accept`, `connect`).
 
-
-* 
-**Padrão *Length-Prefixed Framing* (Mensageria):** Para resolver o problema inerente de quebra de pacotes em streams TCP, implementamos em `pkg/tcp/message.go` um protocolo customizado onde um cabeçalho de 4 bytes (um inteiro de 32 bits indicando o tamanho do payload) é enviado sempre antes do JSON. Isso garante que a mensagem inteira seja lida de forma atômica no destino.
-
-
+* **Padrão *Length-Prefixed Framing* (Mensageria):** Para resolver o problema inerente de quebra de pacotes em streams TCP, implementamos em `pkg/tcp/message.go` um protocolo customizado onde um cabeçalho de 4 bytes (um inteiro de 32 bits indicando o tamanho do payload) é enviado sempre antes do JSON. Isso garante que a mensagem inteira seja lida de forma atômica no destino.
 
 ### 2. Controle de Concorrência (Worker Pool)
 
 * Visando suportar processamento paralelo massivo, os servidores implementam o padrão de *Worker Pool* controlado por Semáforos. Em `pkg/tcp/server.go`, utilizamos um `Channel` bufferizado do Go. Isso limita a quantidade máxima de Goroutines (threads) executando simultaneamente e enfileira novas conexões, protegendo a máquina de esgotamento de recursos e aplicando o aprendizado prático de computação paralela exigido.
-
-
 
 ### 3. Padrões de Integração e Orquestração
 
