@@ -1,0 +1,25 @@
+{
+  "quotation": {
+    "port": ":8081",
+    "ttl_ms": 500,
+    "min_price": 10.0,
+    "max_price": 5000.0
+  },
+  "risk": {
+    "port": ":8082",
+    "min_sleep_ms": 50,
+    "max_sleep_ms": 200,
+    "success_rate": 90.0
+  },
+  "purchase": {
+    "port": ":8083",
+    "min_sleep_ms": 100,
+    "max_sleep_ms": 300,
+    "success_rate": 80.0
+  },
+  "operation": {
+    "quotation_addr": "localhost:8081",
+    "risk_addr": "localhost:8082",
+    "purchase_addr": "localhost:8083"
+  }
+}
