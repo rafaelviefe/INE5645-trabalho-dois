@@ -8,10 +8,10 @@ import (
 )
 
 var (
-	ErrTTL       = errors.New("TTL excedido")
-	ErrRisk      = errors.New("reprovado pela analise de risco")
-	ErrPurchase1 = errors.New("falha na compra do ativo 1")
-	ErrPurchase2 = errors.New("falha na compra do ativo 2")
+	ErrTTLExceeded      = errors.New("TTL excedido")
+	ErrRiskReproved     = errors.New("reprovado pela analise de risco")
+	ErrPurchasingAsset1 = errors.New("falha na compra do ativo 1")
+	ErrPurchasingAsset2 = errors.New("falha na compra do ativo 2")
 )
 
 type Orchestrator struct {
@@ -30,17 +30,17 @@ func NewOrchestrator(qs domain.QuotationService, rs domain.RiskService, ps domai
 
 func checkTTL(deadline time.Time) error {
 	if time.Now().After(deadline) {
-		return ErrTTL
+		return ErrTTLExceeded
 	}
 	return nil
 }
 
 func (o *Orchestrator) ExecuteOrder(order domain.OrderRequest) error {
-	var compensations []domain.PurchaseRequest
+	var rollbacks []domain.PurchaseRequest
 
 	defer func() {
-		for i := len(compensations) - 1; i >= 0; i-- {
-			o.compensate(compensations[i])
+		for i := len(rollbacks) - 1; i >= 0; i-- {
+			o.rollback(rollbacks[i])
 		}
 	}()
 
@@ -73,58 +73,48 @@ func (o *Orchestrator) ExecuteOrder(order domain.OrderRequest) error {
 	}
 
 	if !riskRes.Approved {
-		return ErrRisk
+		return ErrRiskReproved
 	}
 
 	if err := checkTTL(deadline); err != nil {
 		return err
 	}
 
-	purchReq1 := domain.PurchaseRequest{
-		Asset:  order.Asset1,
-		Price:  quoteRes.Price1,
-		Qty:    order.Qty,
-		Action: domain.ActionBuy,
+	purchaseResponseErrors := map[int]error{
+		0: ErrPurchasingAsset1,
+		1: ErrPurchasingAsset2,
+	}
+	prices := []float64{quoteRes.Price1, quoteRes.Price2}
+	for i, asset := range []domain.Asset{order.Asset1, order.Asset2} {
+		if err := checkTTL(deadline); err != nil {
+			return err
+		}
+
+		purchaseReq := domain.PurchaseRequest{
+			Asset:  asset,
+			Price:  prices[i],
+			Qty:    order.Qty,
+			Action: domain.ActionBuy,
+		}
+
+		purchaseRes, err := o.purchaseService.ExecutePurchase(purchaseReq)
+		if err != nil || !purchaseRes.Success {
+			return purchaseResponseErrors[i]
+		}
+
+		rollbacks = append(rollbacks, purchaseReq)
 	}
 
-	purchRes1, err := o.purchaseService.ExecutePurchase(purchReq1)
-	if err != nil || !purchRes1.Success {
-		return ErrPurchase1
-	}
-
-	compensations = append(compensations, purchReq1)
-
-	if err := checkTTL(deadline); err != nil {
-		return err
-	}
-
-	purchReq2 := domain.PurchaseRequest{
-		Asset:  order.Asset2,
-		Price:  quoteRes.Price2,
-		Qty:    order.Qty,
-		Action: domain.ActionBuy,
-	}
-
-	purchRes2, err := o.purchaseService.ExecutePurchase(purchReq2)
-	if err != nil || !purchRes2.Success {
-		return ErrPurchase2
-	}
-
-	compensations = append(compensations, purchReq2)
-
-	if err := checkTTL(deadline); err != nil {
-		return err
-	}
-
-	compensations = nil
+	rollbacks = nil
 	return nil
 }
 
-func (o *Orchestrator) compensate(buyReq domain.PurchaseRequest) {
+func (o *Orchestrator) rollback(buyReq domain.PurchaseRequest) {
 	compReq := domain.PurchaseRequest{
-		Asset:  buyReq.Asset,
-		Price:  buyReq.Price,
-		Qty:    buyReq.Qty,
+		Asset: buyReq.Asset,
+		Price: buyReq.Price,
+		Qty:   buyReq.Qty,
+
 		Action: domain.ActionSell,
 	}
 
