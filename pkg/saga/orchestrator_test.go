@@ -221,6 +221,35 @@ func TestOrderSucceedsWhenBothAssetsPurchased(t *testing.T) {
 	assert.Equal(t, domain.ActionBuy, purchaseSvc.executedActions[1], "Second action should be BUY")
 }
 
+
+// TestTTLExceededImmediately - tests TTL check right after quotation
+// Uses a negative TTL to simulate an already-expired quote
+func TestTTLExceededImmediately(t *testing.T) {
+	// Create a quotation response with negative TTL (already expired)
+	quotationSvc := &MockQuotationService{
+		response: &domain.QuotationResponse{
+			Price1: 50.0,
+			Price2: 5.0,
+			TTLms:  -100, // Negative TTL - will be expired immediately
+		},
+	}
+	riskSvc := &MockRiskService{approved: true}
+	purchaseSvc := NewMockPurchaseService()
+
+	orchestrator := NewOrchestrator(quotationSvc, riskSvc, purchaseSvc)
+
+	order := domain.OrderRequest{
+		Asset1: "ETH/USDT",
+		Asset2: "USD/BRL",
+		Qty:    1.5,
+	}
+
+	err := orchestrator.ExecuteOrder(order)
+
+	assert.Equal(t, ErrTTLExceeded, err, "Expected ErrTTLExceeded when TTL is negative")
+	assert.Equal(t, 0, purchaseSvc.callCount, "Expected 0 purchase calls when TTL expired")
+}
+
 // TestCompensationRevertsInCorrectOrder - CRITICAL TEST
 // Verifies that compensation happens in LIFO order (Last In, First Out)
 // If we bought Asset1 then Asset2, we must sell Asset2 then Asset1
