@@ -7,7 +7,7 @@ import (
 	"trading-saga/pkg/tcp"
 )
 
-var _ domain.QuotationService = (*QuotationClient)(nil)
+var _ domain.QuotationClient = (*QuotationClient)(nil)
 
 type QuotationClient struct {
 	address string
@@ -32,7 +32,7 @@ func (c *QuotationClient) GetQuotation(req domain.QuotationRequest) (*domain.Quo
 	return &res, nil
 }
 
-var _ domain.RiskService = (*RiskClient)(nil)
+var _ domain.RiskClient = (*RiskClient)(nil)
 
 type RiskClient struct {
 	address string
@@ -61,7 +61,7 @@ func (c *RiskClient) EvaluateRisk(req domain.RiskRequest) (*domain.RiskResponse,
 	return &res, nil
 }
 
-var _ domain.PurchaseService = (*PurchaseClient)(nil)
+var _ domain.PurchaseClient = (*PurchaseClient)(nil)
 
 type PurchaseClient struct {
 	address string

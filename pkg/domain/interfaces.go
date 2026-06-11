@@ -1,13 +1,13 @@
 package domain
 
-type QuotationService interface {
+type QuotationClient interface {
 	GetQuotation(req QuotationRequest) (*QuotationResponse, error)
 }
 
-type RiskService interface {
+type RiskClient interface {
 	EvaluateRisk(req RiskRequest) (*RiskResponse, error)
 }
 
-type PurchaseService interface {
+type PurchaseClient interface {
 	ExecutePurchase(req PurchaseRequest) (*PurchaseResponse, error)
 }

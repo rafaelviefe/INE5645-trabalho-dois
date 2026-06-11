@@ -15,16 +15,16 @@ var (
 )
 
 type Orchestrator struct {
-	quotationService domain.QuotationService
-	riskService      domain.RiskService
-	purchaseService  domain.PurchaseService
+	quotationClient domain.QuotationClient
+	riskClient      domain.RiskClient
+	purchaseClient  domain.PurchaseClient
 }
 
-func NewOrchestrator(qs domain.QuotationService, rs domain.RiskService, ps domain.PurchaseService) *Orchestrator {
+func NewOrchestrator(qs domain.QuotationClient, rs domain.RiskClient, ps domain.PurchaseClient) *Orchestrator {
 	return &Orchestrator{
-		quotationService: qs,
-		riskService:      rs,
-		purchaseService:  ps,
+		quotationClient: qs,
+		riskClient:      rs,
+		purchaseClient:  ps,
 	}
 }
 
@@ -49,7 +49,7 @@ func (o *Orchestrator) ExecuteOrder(order domain.OrderRequest) error {
 		Asset2: order.Asset2,
 	}
 
-	quoteRes, err := o.quotationService.GetQuotation(quoteReq)
+	quoteRes, err := o.quotationClient.GetQuotation(quoteReq)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func (o *Orchestrator) ExecuteOrder(order domain.OrderRequest) error {
 		Price2: quoteRes.Price2,
 	}
 
-	riskRes, err := o.riskService.EvaluateRisk(riskReq)
+	riskRes, err := o.riskClient.EvaluateRisk(riskReq)
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (o *Orchestrator) ExecuteOrder(order domain.OrderRequest) error {
 			Action: domain.ActionBuy,
 		}
 
-		purchaseRes, err := o.purchaseService.ExecutePurchase(purchaseReq)
+		purchaseRes, err := o.purchaseClient.ExecutePurchase(purchaseReq)
 		if err != nil || !purchaseRes.Success {
 			return purchaseResponseErrors[i]
 		}
@@ -118,7 +118,7 @@ func (o *Orchestrator) rollback(buyReq domain.PurchaseRequest) {
 		Action: domain.ActionSell,
 	}
 
-	res, err := o.purchaseService.ExecutePurchase(compReq)
+	res, err := o.purchaseClient.ExecutePurchase(compReq)
 	if err != nil {
 		fmt.Printf("\033[41m\033[37m[ALERTA CRÍTICO] ERRO DE REDE NA COMPENSAÇÃO DE %s: %v\033[0m\n", buyReq.Asset, err)
 		return
