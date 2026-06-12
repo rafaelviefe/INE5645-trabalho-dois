@@ -14,7 +14,7 @@ type MockQuotationService struct {
 	response   *domain.QuotationResponse
 }
 
-func (m *MockQuotationService) GetQuotation(req domain.QuotationRequest) (*domain.QuotationResponse, error) {
+func (m *MockQuotationService) Get(req domain.QuotationRequest) (*domain.QuotationResponse, error) {
 	if m.shouldFail {
 		return nil, errors.New("quotation service error")
 	}
@@ -34,7 +34,7 @@ type MockRiskService struct {
 	approved   bool
 }
 
-func (m *MockRiskService) EvaluateRisk(req domain.RiskRequest) (*domain.RiskResponse, error) {
+func (m *MockRiskService) Evaluate(req domain.RiskRequest) (*domain.RiskResponse, error) {
 	if m.shouldFail {
 		return nil, errors.New("risk service error")
 	}
@@ -58,7 +58,7 @@ func NewMockPurchaseService() *MockPurchaseService {
 	}
 }
 
-func (m *MockPurchaseService) ExecutePurchase(req domain.PurchaseRequest) (*domain.PurchaseResponse, error) {
+func (m *MockPurchaseService) Execute(req domain.TradeExecution) (*domain.TradeResponse, error) {
 	m.executedActions = append(m.executedActions, req.Action)
 	m.callCount++
 
@@ -67,16 +67,16 @@ func (m *MockPurchaseService) ExecutePurchase(req domain.PurchaseRequest) (*doma
 	}
 
 	if m.failOnCallNum >= 0 && m.callCount-1 == m.failOnCallNum {
-		return &domain.PurchaseResponse{Success: false}, nil
+		return &domain.TradeResponse{Success: false}, nil
 	}
 
 	// For SELL (compensation), always succeed
 	if req.Action == domain.ActionSell {
-		return &domain.PurchaseResponse{Success: true}, nil
+		return &domain.TradeResponse{Success: true}, nil
 	}
 
 	// For BUY, use success rate
-	return &domain.PurchaseResponse{Success: true}, nil
+	return &domain.TradeResponse{Success: true}, nil
 }
 
 // TestSuccessfulOrderExecution - happy path
@@ -220,7 +220,6 @@ func TestOrderSucceedsWhenBothAssetsPurchased(t *testing.T) {
 	assert.Equal(t, domain.ActionBuy, purchaseSvc.executedActions[0], "First action should be BUY")
 	assert.Equal(t, domain.ActionBuy, purchaseSvc.executedActions[1], "Second action should be BUY")
 }
-
 
 // TestTTLExceededImmediately - tests TTL check right after quotation
 // Uses a negative TTL to simulate an already-expired quote

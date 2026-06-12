@@ -59,7 +59,7 @@ func StartTestServices(ports TestServerPorts) (func(), error) {
 	}()
 
 	// Start purchase service
-	purchaseHandler := handlers.NewPurchaseHandler(cfg)
+	purchaseHandler := handlers.NewTradeHandler(cfg)
 	purchaseServer := tcp.NewServer(cfg.Purchase.Port, 10, purchaseHandler.Handle)
 	go func() {
 		if err := purchaseServer.Start(); err != nil {
@@ -81,7 +81,7 @@ func StartTestServices(ports TestServerPorts) (func(), error) {
 }
 
 // GetTestClients returns initialized clients pointing to test services
-func GetTestClients(ports TestServerPorts) (*adapters.QuotationClient, *adapters.RiskClient, *adapters.PurchaseClient) {
+func GetTestClients(ports TestServerPorts) (*adapters.QuotationClient, *adapters.RiskClient, *adapters.TradeClient) {
 	// Extract host:port from addresses like ":9091" -> "localhost:9091"
 	quotationAddr := "localhost" + ports.Quotation
 	riskAddr := "localhost" + ports.Risk
@@ -89,7 +89,7 @@ func GetTestClients(ports TestServerPorts) (*adapters.QuotationClient, *adapters
 
 	quotationClient := adapters.NewQuotationClient(quotationAddr)
 	riskClient := adapters.NewRiskClient(riskAddr)
-	purchaseClient := adapters.NewPurchaseClient(purchaseAddr)
+	purchaseClient := adapters.NewTradeClient(purchaseAddr)
 
 	return quotationClient, riskClient, purchaseClient
 }

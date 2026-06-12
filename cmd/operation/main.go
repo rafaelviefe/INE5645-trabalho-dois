@@ -22,7 +22,7 @@ func main() {
 
 	quotationClient := adapters.NewQuotationClient(cfg.Operation.QuotationAddr)
 	riskClient := adapters.NewRiskClient(cfg.Operation.RiskAddr)
-	purchaseClient := adapters.NewPurchaseClient(cfg.Operation.PurchaseAddr)
+	purchaseClient := adapters.NewTradeClient(cfg.Operation.PurchaseAddr)
 
 	orchestrator := saga.NewOrchestrator(quotationClient, riskClient, purchaseClient)
 

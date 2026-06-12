@@ -2,6 +2,7 @@ package domain
 
 type Asset string
 
+// trade intent
 type OrderRequest struct {
 	Asset1 Asset   `json:"asset_1"`
 	Asset2 Asset   `json:"asset_2"`
@@ -37,13 +38,13 @@ const (
 	ActionSell ActionType = "SELL"
 )
 
-type PurchaseRequest struct {
-	Asset  Asset      `json:"asset"`
-	Price  float64    `json:"price"`
-	Qty    float64    `json:"qty"`
-	Action ActionType `json:"action"`
+type TradeExecution struct {
+	Asset    Asset      `json:"asset"`
+	Price    float64    `json:"price"`
+	Quantity float64    `json:"qty"`
+	Action   ActionType `json:"action"`
 }
 
-type PurchaseResponse struct {
+type TradeResponse struct {
 	Success bool `json:"success"`
 }

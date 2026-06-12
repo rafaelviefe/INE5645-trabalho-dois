@@ -15,16 +15,16 @@ var (
 )
 
 type Orchestrator struct {
-	quotationClient domain.QuotationClient
-	riskClient      domain.RiskClient
-	purchaseClient  domain.PurchaseClient
+	quotation domain.QuotationClient
+	risk      domain.RiskClient
+	order     domain.TradeClient
 }
 
-func NewOrchestrator(qs domain.QuotationClient, rs domain.RiskClient, ps domain.PurchaseClient) *Orchestrator {
+func NewOrchestrator(qs domain.QuotationClient, rs domain.RiskClient, ps domain.TradeClient) *Orchestrator {
 	return &Orchestrator{
-		quotationClient: qs,
-		riskClient:      rs,
-		purchaseClient:  ps,
+		quotation: qs,
+		risk:      rs,
+		order:     ps,
 	}
 }
 
@@ -36,7 +36,7 @@ func checkTTL(deadline time.Time) error {
 }
 
 func (o *Orchestrator) ExecuteOrder(order domain.OrderRequest) error {
-	var rollbacks []domain.PurchaseRequest
+	var rollbacks []domain.TradeExecution
 
 	defer func() {
 		for i := len(rollbacks) - 1; i >= 0; i-- {
@@ -49,7 +49,7 @@ func (o *Orchestrator) ExecuteOrder(order domain.OrderRequest) error {
 		Asset2: order.Asset2,
 	}
 
-	quoteRes, err := o.quotationClient.GetQuotation(quoteReq)
+	quoteRes, err := o.quotation.Get(quoteReq)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func (o *Orchestrator) ExecuteOrder(order domain.OrderRequest) error {
 		Price2: quoteRes.Price2,
 	}
 
-	riskRes, err := o.riskClient.EvaluateRisk(riskReq)
+	riskRes, err := o.risk.Evaluate(riskReq)
 	if err != nil {
 		return err
 	}
@@ -90,14 +90,14 @@ func (o *Orchestrator) ExecuteOrder(order domain.OrderRequest) error {
 			return err
 		}
 
-		purchaseReq := domain.PurchaseRequest{
-			Asset:  asset,
-			Price:  prices[i],
-			Qty:    order.Qty,
-			Action: domain.ActionBuy,
+		purchaseReq := domain.TradeExecution{
+			Asset:    asset,
+			Price:    prices[i],
+			Quantity: order.Qty,
+			Action:   domain.ActionBuy,
 		}
 
-		purchaseRes, err := o.purchaseClient.ExecutePurchase(purchaseReq)
+		purchaseRes, err := o.order.Execute(purchaseReq)
 		if err != nil || !purchaseRes.Success {
 			return purchaseResponseErrors[i]
 		}
@@ -109,23 +109,23 @@ func (o *Orchestrator) ExecuteOrder(order domain.OrderRequest) error {
 	return nil
 }
 
-func (o *Orchestrator) rollback(buyReq domain.PurchaseRequest) {
-	compReq := domain.PurchaseRequest{
-		Asset: buyReq.Asset,
-		Price: buyReq.Price,
-		Qty:   buyReq.Qty,
+func (o *Orchestrator) rollback(purchaseReq domain.TradeExecution) {
+	compReq := domain.TradeExecution{
+		Asset:    purchaseReq.Asset,
+		Price:    purchaseReq.Price,
+		Quantity: purchaseReq.Quantity,
 
 		Action: domain.ActionSell,
 	}
 
-	res, err := o.purchaseClient.ExecutePurchase(compReq)
+	res, err := o.order.Execute(compReq)
 	if err != nil {
-		fmt.Printf("\033[41m\033[37m[ALERTA CRÍTICO] ERRO DE REDE NA COMPENSAÇÃO DE %s: %v\033[0m\n", buyReq.Asset, err)
+		fmt.Printf("\033[41m\033[37m[ALERTA CRÍTICO] ERRO DE REDE NA COMPENSAÇÃO DE %s: %v\033[0m\n", purchaseReq.Asset, err)
 		return
 	}
 
 	if res == nil || !res.Success {
-		fmt.Printf("\033[41m\033[37m[ALERTA CRÍTICO] FALHA DE CONSISTÊNCIA: COMPENSAÇÃO DE %s REJEITADA OU MAL-SUCEDIDA!\033[0m\n", buyReq.Asset)
+		fmt.Printf("\033[41m\033[37m[ALERTA CRÍTICO] FALHA DE CONSISTÊNCIA: COMPENSAÇÃO DE %s REJEITADA OU MAL-SUCEDIDA!\033[0m\n", purchaseReq.Asset)
 		return
 	}
 }

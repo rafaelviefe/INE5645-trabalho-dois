@@ -13,7 +13,7 @@ func main() {
 		log.Fatalf("%v\n", err)
 	}
 
-	purchaseHandler := handlers.NewPurchaseHandler(cfg)
+	purchaseHandler := handlers.NewTradeHandler(cfg)
 
 	log.Printf("Purchase Service running on %s\n", cfg.Purchase.Port)
 	server := tcp.NewServer(cfg.Purchase.Port, 100, purchaseHandler.Handle)

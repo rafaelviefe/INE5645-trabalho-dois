@@ -17,7 +17,7 @@ func NewQuotationClient(address string) *QuotationClient {
 	return &QuotationClient{address: address}
 }
 
-func (c *QuotationClient) GetQuotation(req domain.QuotationRequest) (*domain.QuotationResponse, error) {
+func (c *QuotationClient) Get(req domain.QuotationRequest) (*domain.QuotationResponse, error) {
 	fmt.Printf("\033[90m -> [COTAÇÃO] Solicitando preços e TTL para %s e %s...\033[0m\n", req.Asset1, req.Asset2)
 
 	payload, _ := json.Marshal(req)
@@ -42,7 +42,7 @@ func NewRiskClient(address string) *RiskClient {
 	return &RiskClient{address: address}
 }
 
-func (c *RiskClient) EvaluateRisk(req domain.RiskRequest) (*domain.RiskResponse, error) {
+func (c *RiskClient) Evaluate(req domain.RiskRequest) (*domain.RiskResponse, error) {
 	fmt.Printf("\033[90m -> [RISCO] Analisando viabilidade da operação...\033[0m\n")
 
 	payload, _ := json.Marshal(req)
@@ -61,21 +61,25 @@ func (c *RiskClient) EvaluateRisk(req domain.RiskRequest) (*domain.RiskResponse,
 	return &res, nil
 }
 
-var _ domain.PurchaseClient = (*PurchaseClient)(nil)
+var _ domain.TradeClient = (*TradeClient)(nil)
 
-type PurchaseClient struct {
+type TradeClient struct {
 	address string
 }
 
-func NewPurchaseClient(address string) *PurchaseClient {
-	return &PurchaseClient{address: address}
+func NewTradeClient(address string) *TradeClient {
+	return &TradeClient{address: address}
 }
 
-func (c *PurchaseClient) ExecutePurchase(req domain.PurchaseRequest) (*domain.PurchaseResponse, error) {
-	if req.Action == domain.ActionBuy {
-		fmt.Printf("\033[90m -> [COMPRA] Efetuando COMPRA de %.2f %s...\033[0m\n", req.Qty, req.Asset)
-	} else {
-		fmt.Printf("\033[93m -> [COMPENSAÇÃO] Efetuando VENDA (estorno) de %.2f %s...\033[0m\n", req.Qty, req.Asset)
+func (c *TradeClient) Execute(req domain.TradeExecution) (*domain.TradeResponse, error) {
+
+	switch req.Action {
+	case domain.ActionBuy:
+		fmt.Printf("\033[90m -> [COMPRA] Efetuando COMPRA de %.2f %s...\033[0m\n", req.Quantity, req.Asset)
+	case domain.ActionSell:
+		fmt.Printf("\033[93m -> [COMPENSAÇÃO] Efetuando VENDA (estorno) de %.2f %s...\033[0m\n", req.Quantity, req.Asset)
+	default:
+		return nil, fmt.Errorf("invalid action: %s", req.Action)
 	}
 
 	payload, _ := json.Marshal(req)
@@ -84,7 +88,7 @@ func (c *PurchaseClient) ExecutePurchase(req domain.PurchaseRequest) (*domain.Pu
 		return nil, err
 	}
 
-	var res domain.PurchaseResponse
+	var res domain.TradeResponse
 	json.Unmarshal(resPayload, &res)
 
 	if res.Success {

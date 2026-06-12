@@ -8,16 +8,16 @@ import (
 	"trading-saga/pkg/domain"
 )
 
-type PurchaseHandler struct {
+type TradeHandler struct {
 	cfg *config.Config
 }
 
-func NewPurchaseHandler(cfg *config.Config) *PurchaseHandler {
-	return &PurchaseHandler{cfg: cfg}
+func NewTradeHandler(cfg *config.Config) *TradeHandler {
+	return &TradeHandler{cfg: cfg}
 }
 
-func (h *PurchaseHandler) Handle(req []byte) []byte {
-	var pReq domain.PurchaseRequest
+func (h *TradeHandler) Handle(req []byte) []byte {
+	var pReq domain.TradeExecution
 	if err := json.Unmarshal(req, &pReq); err != nil {
 		return nil
 	}
@@ -30,7 +30,7 @@ func (h *PurchaseHandler) Handle(req []byte) []byte {
 		success = (rand.Float64() * 100.0) <= h.cfg.Purchase.SuccessRate
 	}
 
-	pRes := domain.PurchaseResponse{
+	pRes := domain.TradeResponse{
 		Success: success,
 	}
 
