@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 	"trading-saga/pkg/domain"
+	"trading-saga/pkg/domain/ports"
 )
 
 var (
@@ -15,12 +16,12 @@ var (
 )
 
 type Orchestrator struct {
-	quotation domain.QuotationClient
-	risk      domain.RiskClient
-	order     domain.TradeClient
+	quotation ports.QuotationClient
+	risk      ports.RiskClient
+	order     ports.TradeClient
 }
 
-func NewOrchestrator(qs domain.QuotationClient, rs domain.RiskClient, ps domain.TradeClient) *Orchestrator {
+func NewOrchestrator(qs ports.QuotationClient, rs ports.RiskClient, ps ports.TradeClient) *Orchestrator {
 	return &Orchestrator{
 		quotation: qs,
 		risk:      rs,
