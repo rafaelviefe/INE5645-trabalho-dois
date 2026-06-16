@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   quotation:
@@ -21,6 +21,6 @@ services:
     build:
       context: .
       args:
-        SERVICE_NAME: purchase
+        SERVICE_NAME: trade
     ports:
       - "8083:8083"

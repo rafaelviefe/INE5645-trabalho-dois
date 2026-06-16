@@ -2,6 +2,7 @@ package tcp
 
 import (
 	"net"
+	"sync"
 	"time"
 )
 
@@ -11,6 +12,7 @@ type Server struct {
 	address    string
 	maxWorkers int
 	handler    HandlerFunc
+	wg         sync.WaitGroup
 }
 
 func NewServer(address string, maxWorkers int, handler HandlerFunc) *Server {
@@ -18,6 +20,7 @@ func NewServer(address string, maxWorkers int, handler HandlerFunc) *Server {
 		address:    address,
 		maxWorkers: maxWorkers,
 		handler:    handler,
+		wg:         sync.WaitGroup{},
 	}
 }
 

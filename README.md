@@ -8,46 +8,51 @@
 
 Para executar este projeto em uma máquina sem configurações prévias, você precisará das seguintes ferramentas:
 
-1. **Go (Golang) v1.22+**: Necessário para rodar o cliente localmente e compilar os binários.
-* *Linux*: `sudo apt install golang`
-* *Windows/Mac*: Baixe o instalador no [site oficial do Go](https://go.dev/dl/).
+1. **Go (Golang) v1.22+**: Necessário para compilar e rodar todos os serviços.
+   * *Linux*: `sudo apt install golang`
+   * *Windows/Mac*: Baixe o instalador no [site oficial do Go](https://go.dev/dl/).
 
+2. **Make**: (Opcional, mas recomendado) Para utilizar os atalhos de execução. No Linux/Mac geralmente já vem instalado (ou `sudo apt install make`). No Windows, instale via `choco install make` ou utilize os comandos puros listados no `Makefile`.
 
-2. **Docker e Docker Compose**: Necessário para conteinerizar e isolar os microsserviços.
-* Instale o [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/Mac) ou via gerenciador de pacotes no Linux (`sudo apt install docker-compose-plugin`).
-
-
-3. **Make**: (Opcional, mas recomendado) Para utilizar os atalhos de execução. No Linux/Mac geralmente já vem instalado (ou `sudo apt install make`). No Windows, instale via `choco install make` ou utilize os comandos puros listados no arquivo `Makefile`.
+3. **Docker e Docker Compose**: (Alternativo) Necessário apenas se quiser rodar os microsserviços em containers isolados. Instale o [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/Mac) ou via gerenciador de pacotes no Linux (`sudo apt install docker-compose-plugin`).
 
 ---
 
 ## Como Executar o Projeto
 
-A abordagem arquitetural escolhida mantém os três sistemas satélites (Cotação, Risco, Compra) rodando em containers Docker em background, enquanto o **Sistema de Operação (Orquestrador)** roda nativamente no seu terminal local. Isso garante uma interface de usuário (CLI) rica, interativa e com logs coloridos em tempo real.
+Há duas formas de rodar o projeto. A **recomendada** é com `make run-dev`, que executa todos os serviços localmente com `go run` (sem cache, sem Docker, lê o `config.json` sempre atualizado). A alternativa via Docker também está disponível.
 
-**Passo 1: Subir os serviços satélites (Backend)**
-Na raiz do projeto, abra o terminal e execute:
+### Modo Rápido (Recomendado) - `make run-dev`
+
+Na raiz do projeto, execute:
+
+```bash
+make run-dev
+```
+
+Isso sobe os 3 serviços (Cotação, Risco, Compra) em background com `go run` e abre o CLI interativo. Para sair, digite `exit` ou pressione `Ctrl+C` — os serviços em background são encerrados automaticamente.
+
+### Modo Alternativo - Docker
+
+Os serviços podem rodar em containers Docker, enquanto o **CLI (Orquestrador)** roda localmente no terminal. Use este modo se preferir isolar os microsserviços.
+
+**Passo 1:** Subir os serviços satélites:
 
 ```bash
 make docker-up
 ```
 
-*(Isso fará o build da imagem multi-stage e subirá os 3 serviços nas portas 8081, 8082 e 8083. Se não tiver o `make`, use: `docker compose up --build -d`)*
+*(Equivalente a `docker compose up --build -d`)*
 
-**Passo 2: Iniciar a Interface do Sistema de Operação (CLI)**
-Em outro terminal (ou no mesmo, já que os containers estão em modo *detached*), execute:
+**Passo 2:** Em outro terminal, iniciar o CLI:
 
 ```bash
 make run-cli
 ```
 
-*(Se não tiver o `make`, use: `go run cmd/operation/main.go`)*
+**Passo 3:** Executar ordens como `order ETH/USDT USD/BRL 1.5`.
 
-**Passo 3: Executar as Ordens**
-No terminal interativo que se abriu, digite comandos como:
-`> order ETH/USDT USD/BRL 1.5`
-
-Para encerrar o ambiente ao final dos testes:
+Para encerrar:
 
 ```bash
 make docker-down
@@ -57,7 +62,11 @@ make docker-down
 
 ## Validando os Casos de Uso (Simulação de Caos)
 
-O sistema foi arquitetado para ler variáveis de ambiente de um arquivo central `config.json`. Ao alterar este arquivo, podemos forçar o sistema a entrar nos cenários de falha exigidos. **Importante:** Se você alterar o `config.json` e quiser testar no Docker, é necessário rodar `make docker-up` novamente para reconstruir a imagem com o novo arquivo. Se for testar rodando tudo localmente (via `make run-quotation`, etc.), basta salvar o arquivo.
+O sistema lê as configurações de um arquivo central `config.json`. Ao alterá-lo, podemos forçar os cenários de falha exigidos.
+
+**Importante sobre o config.json:**
+- Com `make run-dev` (recomendado): os serviços leem o arquivo ao vivo — basta salvar as alterações, reiniciar com `make run-dev` e os novos valores serão aplicados. **Sem cache.**
+- Com Docker: a imagem tem o `config.json` copiado em build time. É necessário rodar `make docker-up` novamente para rebuildar as imagens com o novo arquivo.
 
 ### Cenário 1: Sucesso na Operação
 

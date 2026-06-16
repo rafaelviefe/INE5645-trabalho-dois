@@ -60,7 +60,7 @@ O objetivo desta fase é criar nossa própria "biblioteca" de comunicação dist
 
 *Pacote final do protótipo.*
 
-* **5.1. Docker e Docker Compose:** Escreveremos o `Dockerfile` para os binários em Go (usando *multi-stage build* para ficarem minúsculos, com poucos MBs) e o `docker-compose.yml`. Com um único `docker-compose up`, os 4 nós subirão em portas distintas, comunicando-se pela rede interna do Docker.
+* **5.1. Docker e Docker Compose:** Escreveremos o `Dockerfile` para os binários em Go (usando *multi-stage build* para ficarem minúsculos, com poucos MBs) e o `docker-compose.yml`. Com um único `docker-compose up`, os 4 nós subirão em portas distintas, comunicando-se pela rede interna do Docker. Como alternativa, o `Makefile` também oferece `make run-dev` para rodar todos os serviços localmente com `go run` (sem cache de configuração).
 * 5.2. Relatório de Arquitetura (Bônus): Posso ajudar a estruturar os tópicos e textos para o relatório `.pdf` exigido, justificando o uso do SAGA, Request-Reply e Worker Pool.
 
 
