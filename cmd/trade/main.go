@@ -2,8 +2,9 @@ package main
 
 import (
 	"log"
+	"trading-saga/pkg/adapter/inbound"
+	"trading-saga/pkg/application/service"
 	"trading-saga/pkg/config"
-	"trading-saga/pkg/handlers"
 	"trading-saga/pkg/tcp"
 )
 
@@ -13,10 +14,11 @@ func main() {
 		log.Fatalf("%v\n", err)
 	}
 
-	purchaseHandler := handlers.NewTradeHandler(cfg)
+	svc := service.NewTradeService(cfg.Purchase)
+	handler := inbound.NewTradeHandler(svc)
 
 	log.Printf("Purchase Service running on %s\n", cfg.Purchase.Port)
-	server := tcp.NewServer(cfg.Purchase.Port, 100, purchaseHandler.Handle)
+	server := tcp.NewServer(cfg.Purchase.Port, 100, handler.Handle)
 	if err := server.Start(); err != nil {
 		log.Fatalf("%v\n", err)
 	}

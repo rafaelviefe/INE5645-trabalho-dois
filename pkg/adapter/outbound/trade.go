@@ -1,4 +1,4 @@
-package adapters
+package outbound
 
 import (
 	"encoding/json"
@@ -19,7 +19,6 @@ func NewTradeClient(address string) *TradeClient {
 }
 
 func (c *TradeClient) Execute(req domain.TradeExecution) (*domain.TradeResponse, error) {
-
 	switch req.Action {
 	case domain.ActionBuy:
 		fmt.Printf("\033[90m -> [COMPRA] Efetuando COMPRA de %.2f %s...\033[0m\n", req.Quantity, req.Asset)

@@ -4,25 +4,24 @@ import (
 	"fmt"
 	"log"
 	"time"
-	"trading-saga/pkg/adapters"
+	"trading-saga/pkg/adapter/inbound"
+	"trading-saga/pkg/adapter/outbound"
+	"trading-saga/pkg/application/service"
 	"trading-saga/pkg/config"
-	"trading-saga/pkg/handlers"
 	"trading-saga/pkg/tcp"
 )
 
-// TestServerPorts defines ports for test services
 type TestServerPorts struct {
 	Quotation string
 	Risk      string
 	Purchase  string
 }
 
-// StartTestServices starts all three test services and returns cleanup function
 func StartTestServices(ports TestServerPorts) (func(), error) {
 	cfg := &config.Config{
 		Quotation: config.QuotationConfig{
 			Port:     ports.Quotation,
-			TTLMs:    1000, // 1 second TTL for tests
+			TTLMs:    1000,
 			MinPrice: 10.0,
 			MaxPrice: 100.0,
 		},
@@ -30,18 +29,18 @@ func StartTestServices(ports TestServerPorts) (func(), error) {
 			Port:        ports.Risk,
 			MinSleepMs:  10,
 			MaxSleepMs:  50,
-			SuccessRate: 100.0, // Always approve by default
+			SuccessRate: 100.0,
 		},
 		Purchase: config.PurchaseConfig{
 			Port:        ports.Purchase,
 			MinSleepMs:  10,
 			MaxSleepMs:  50,
-			SuccessRate: 100.0, // Always succeed by default
+			SuccessRate: 100.0,
 		},
 	}
 
-	// Start quotation service
-	quotationHandler := handlers.NewQuotationHandler(cfg)
+	qs := service.NewQuotationService(cfg.Quotation)
+	quotationHandler := inbound.NewQuotationHandler(qs)
 	quotationServer := tcp.NewServer(cfg.Quotation.Port, 10, quotationHandler.Handle)
 	go func() {
 		if err := quotationServer.Start(); err != nil {
@@ -49,8 +48,8 @@ func StartTestServices(ports TestServerPorts) (func(), error) {
 		}
 	}()
 
-	// Start risk service
-	riskHandler := handlers.NewRiskHandler(cfg)
+	rs := service.NewRiskService(cfg.Risk)
+	riskHandler := inbound.NewRiskHandler(rs)
 	riskServer := tcp.NewServer(cfg.Risk.Port, 10, riskHandler.Handle)
 	go func() {
 		if err := riskServer.Start(); err != nil {
@@ -58,8 +57,8 @@ func StartTestServices(ports TestServerPorts) (func(), error) {
 		}
 	}()
 
-	// Start purchase service
-	purchaseHandler := handlers.NewTradeHandler(cfg)
+	ts := service.NewTradeService(cfg.Purchase)
+	purchaseHandler := inbound.NewTradeHandler(ts)
 	purchaseServer := tcp.NewServer(cfg.Purchase.Port, 10, purchaseHandler.Handle)
 	go func() {
 		if err := purchaseServer.Start(); err != nil {
@@ -67,29 +66,23 @@ func StartTestServices(ports TestServerPorts) (func(), error) {
 		}
 	}()
 
-	// Give servers time to start
 	time.Sleep(100 * time.Millisecond)
 
-	// Return cleanup function
 	cleanup := func() {
-		// Note: In a real scenario, we would add Stop() methods to servers
-		// For now, servers will be stopped when the test process exits
 		fmt.Println("Test services cleanup completed")
 	}
 
 	return cleanup, nil
 }
 
-// GetTestClients returns initialized clients pointing to test services
-func GetTestClients(ports TestServerPorts) (*adapters.QuotationClient, *adapters.RiskClient, *adapters.TradeClient) {
-	// Extract host:port from addresses like ":9091" -> "localhost:9091"
+func GetTestClients(ports TestServerPorts) (*outbound.QuotationClient, *outbound.RiskClient, *outbound.TradeClient) {
 	quotationAddr := "localhost" + ports.Quotation
 	riskAddr := "localhost" + ports.Risk
 	purchaseAddr := "localhost" + ports.Purchase
 
-	quotationClient := adapters.NewQuotationClient(quotationAddr)
-	riskClient := adapters.NewRiskClient(riskAddr)
-	purchaseClient := adapters.NewTradeClient(purchaseAddr)
+	quotationClient := outbound.NewQuotationClient(quotationAddr)
+	riskClient := outbound.NewRiskClient(riskAddr)
+	purchaseClient := outbound.NewTradeClient(purchaseAddr)
 
 	return quotationClient, riskClient, purchaseClient
 }

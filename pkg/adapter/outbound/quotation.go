@@ -1,11 +1,10 @@
-package adapters
+package outbound
 
 import (
 	"encoding/json"
 	"fmt"
 	"trading-saga/pkg/domain"
 	"trading-saga/pkg/domain/ports"
-
 	"trading-saga/pkg/tcp"
 )
 
