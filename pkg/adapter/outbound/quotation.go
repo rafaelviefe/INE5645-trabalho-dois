@@ -3,6 +3,8 @@ package outbound
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+	"time"
 	"trading-saga/pkg/domain"
 	"trading-saga/pkg/domain/ports"
 	"trading-saga/pkg/tcp"
@@ -11,19 +13,29 @@ import (
 var _ ports.QuotationClient = (*QuotationClient)(nil)
 
 type QuotationClient struct {
-	address string
+	pool *Pool
 }
 
-func NewQuotationClient(address string) *QuotationClient {
-	return &QuotationClient{address: address}
+func NewQuotationClient(addrs []string, cooldown time.Duration) *QuotationClient {
+	return &QuotationClient{
+		pool: NewPool(addrs, cooldown),
+	}
 }
 
 func (c *QuotationClient) Get(req domain.QuotationRequest) (*domain.QuotationResponse, error) {
 	fmt.Printf("\033[90m -> [COTAÇÃO] Solicitando preços e TTL para %s e %s...\033[0m\n", req.Asset1, req.Asset2)
 
-	payload, _ := json.Marshal(req)
-	resPayload, err := tcp.SendRequest(c.address, payload)
+	addr, err := c.pool.Next()
 	if err != nil {
+		return nil, err
+	}
+
+	payload, _ := json.Marshal(req)
+	resPayload, err := tcp.SendRequest(addr, payload)
+	if err != nil {
+		if _, ok := err.(net.Error); ok {
+			c.pool.MarkUnhealthy(addr)
+		}
 		return nil, err
 	}
 

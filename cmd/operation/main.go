@@ -8,10 +8,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"trading-saga/pkg/adapter/outbound"
 	"trading-saga/pkg/application/saga"
 	"trading-saga/pkg/config"
 	"trading-saga/pkg/domain"
+	"trading-saga/pkg/domain/ports"
 )
 
 func main() {
@@ -20,9 +22,11 @@ func main() {
 		log.Fatalf("Erro ao carregar config: %v", err)
 	}
 
-	quotationClient := outbound.NewQuotationClient(cfg.Operation.QuotationAddr)
-	riskClient := outbound.NewRiskClient(cfg.Operation.RiskAddr)
-	purchaseClient := outbound.NewTradeClient(cfg.Operation.PurchaseAddr)
+	poolCooldown := time.Duration(cfg.Operation.PoolCooldownMs) * time.Millisecond
+
+	var quotationClient ports.QuotationClient = outbound.NewQuotationClient(cfg.Operation.QuotationAddrs, poolCooldown)
+	var riskClient ports.RiskClient = outbound.NewRiskClient(cfg.Operation.RiskAddrs, poolCooldown)
+	var purchaseClient ports.TradeClient = outbound.NewTradeClient(cfg.Operation.PurchaseAddrs, poolCooldown)
 
 	orchestrator := saga.NewOrchestrator(quotationClient, riskClient, purchaseClient)
 

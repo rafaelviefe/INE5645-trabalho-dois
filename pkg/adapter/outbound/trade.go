@@ -3,6 +3,8 @@ package outbound
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+	"time"
 	"trading-saga/pkg/domain"
 	"trading-saga/pkg/domain/ports"
 	"trading-saga/pkg/tcp"
@@ -11,11 +13,13 @@ import (
 var _ ports.TradeClient = (*TradeClient)(nil)
 
 type TradeClient struct {
-	address string
+	pool *Pool
 }
 
-func NewTradeClient(address string) *TradeClient {
-	return &TradeClient{address: address}
+func NewTradeClient(addrs []string, cooldown time.Duration) *TradeClient {
+	return &TradeClient{
+		pool: NewPool(addrs, cooldown),
+	}
 }
 
 func (c *TradeClient) Execute(req domain.TradeExecution) (*domain.TradeResponse, error) {
@@ -28,9 +32,17 @@ func (c *TradeClient) Execute(req domain.TradeExecution) (*domain.TradeResponse,
 		return nil, fmt.Errorf("invalid action: %s", req.Action)
 	}
 
-	payload, _ := json.Marshal(req)
-	resPayload, err := tcp.SendRequest(c.address, payload)
+	addr, err := c.pool.Next()
 	if err != nil {
+		return nil, err
+	}
+
+	payload, _ := json.Marshal(req)
+	resPayload, err := tcp.SendRequest(addr, payload)
+	if err != nil {
+		if _, ok := err.(net.Error); ok {
+			c.pool.MarkUnhealthy(addr)
+		}
 		return nil, err
 	}
 

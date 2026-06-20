@@ -2,8 +2,11 @@ package tests
 
 import (
 	"testing"
-	"trading-saga/pkg/domain"
+	"time"
+	"trading-saga/pkg/adapter/outbound"
 	"trading-saga/pkg/application/saga"
+	"trading-saga/pkg/config"
+	"trading-saga/pkg/domain"
 )
 
 func TestSuccessfulOrderFlow(t *testing.T) {
@@ -66,11 +69,91 @@ func TestOrderFailsOnRiskRejection(t *testing.T) {
 }
 
 func TestOrderWithTTLExceeded(t *testing.T) {
-	t.Skip("TTL test requires timing-dependent setup")
+	quotationCfg := config.QuotationConfig{
+		Port:     ":9107",
+		TTLMs:    1,
+		MinPrice: 10.0,
+		MaxPrice: 100.0,
+	}
+	riskCfg := config.RiskConfig{
+		Port:        ":9108",
+		MinSleepMs:  100,
+		MaxSleepMs:  200,
+		SuccessRate: 100.0,
+	}
+	purchaseCfg := config.PurchaseConfig{
+		Port:        ":9109",
+		MinSleepMs:  10,
+		MaxSleepMs:  50,
+		SuccessRate: 100.0,
+	}
+
+	cleanup, err := StartCustomServices(quotationCfg, riskCfg, purchaseCfg)
+	if err != nil {
+		t.Fatalf("Failed to start test services: %v", err)
+	}
+	defer cleanup()
+
+	quotationClient := outbound.NewQuotationClient([]string{"localhost:9107"}, time.Second)
+	riskClient := outbound.NewRiskClient([]string{"localhost:9108"}, time.Second)
+	purchaseClient := outbound.NewTradeClient([]string{"localhost:9109"}, time.Second)
+
+	orchestrator := saga.NewOrchestrator(quotationClient, riskClient, purchaseClient)
+
+	order := domain.OrderRequest{
+		Asset1: "ETH/USDT",
+		Asset2: "USD/BRL",
+		Qty:    1.5,
+	}
+
+	err = orchestrator.ExecuteOrder(order)
+	if err != saga.ErrTTLExceeded {
+		t.Errorf("Expected ErrTTLExceeded, got: %v", err)
+	}
 }
 
 func TestOrderCompensatesOnPurchaseFailure(t *testing.T) {
-	t.Skip("Purchase failure test requires mock setup")
+	quotationCfg := config.QuotationConfig{
+		Port:     ":9110",
+		TTLMs:    5000,
+		MinPrice: 10.0,
+		MaxPrice: 100.0,
+	}
+	riskCfg := config.RiskConfig{
+		Port:        ":9111",
+		MinSleepMs:  10,
+		MaxSleepMs:  50,
+		SuccessRate: 100.0,
+	}
+	purchaseCfg := config.PurchaseConfig{
+		Port:        ":9112",
+		MinSleepMs:  10,
+		MaxSleepMs:  50,
+		SuccessRate: 0.0,
+	}
+
+	cleanup, err := StartCustomServices(quotationCfg, riskCfg, purchaseCfg)
+	if err != nil {
+		t.Fatalf("Failed to start test services: %v", err)
+	}
+	defer cleanup()
+
+	quotationClient := outbound.NewQuotationClient([]string{"localhost:9110"}, time.Second)
+	riskClient := outbound.NewRiskClient([]string{"localhost:9111"}, time.Second)
+	purchaseClient := outbound.NewTradeClient([]string{"localhost:9112"}, time.Second)
+
+	orchestrator := saga.NewOrchestrator(quotationClient, riskClient, purchaseClient)
+
+	order := domain.OrderRequest{
+		Asset1: "ETH/USDT",
+		Asset2: "USD/BRL",
+		Qty:    1.5,
+	}
+
+	err = orchestrator.ExecuteOrder(order)
+	if err != saga.ErrPurchasingAsset1 {
+		t.Errorf("Expected ErrPurchasingAsset1 (0%% purchase success), got: %v", err)
+	}
 }
 
 func TestMultipleConcurrentOrders(t *testing.T) {

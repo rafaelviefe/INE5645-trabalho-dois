@@ -25,7 +25,7 @@ func NewQuotationService(cfg config.QuotationConfig) *QuotationService {
 
 func (s *QuotationService) Handle(req domain.QuotationRequest) (*domain.QuotationResponse, error) {
 	p1 := s.minPrice + rand.Float64()*(s.maxPrice-s.minPrice)
-	p2 := s.minPrice + rand.Float64()*(s.maxPrice-s.maxPrice)
+	p2 := s.minPrice + rand.Float64()*(s.maxPrice-s.minPrice)
 
 	return &domain.QuotationResponse{
 		Price1: p1,
