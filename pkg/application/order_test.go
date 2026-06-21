@@ -6,6 +6,7 @@ import (
 	"trading-saga/pkg/domain"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type MockQuotationService struct {
@@ -124,7 +125,7 @@ func TestOrderFailsOnRiskRejection(t *testing.T) {
 
 	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
-	assert.Equal(t, ErrRiskReproved, err, "Expected ErrRiskReproved")
+	assert.True(t, errors.Is(err, ErrRiskReproved), "Expected ErrRiskReproved")
 	assert.Equal(t, 0, purchaseSvc.callCount, "Expected 0 purchase calls when risk is rejected")
 }
 
@@ -159,7 +160,8 @@ func TestOrderCompensatesOnFirstAssetPurchaseFailure(t *testing.T) {
 
 	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
-	assert.Equal(t, ErrPurchasingAsset2, err, "Expected ErrPurchasingAsset2 when second asset purchase fails")
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrPurchasingAsset2), "Expected ErrPurchasingAsset2 when second asset purchase fails")
 
 	assert.Equal(t, 3, purchaseSvc.callCount, "Expected 3 purchase calls (BUY Asset1, BUY Asset2, SELL Asset1 compensation)")
 
@@ -211,7 +213,7 @@ func TestTTLExceededImmediately(t *testing.T) {
 
 	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
-	assert.Equal(t, ErrTTLExceeded, err, "Expected ErrTTLExceeded when TTL is negative")
+	assert.True(t, errors.Is(err, ErrTTLExceeded), "Expected ErrTTLExceeded when TTL is negative")
 	assert.Equal(t, 0, purchaseSvc.callCount, "Expected 0 purchase calls when TTL expired")
 }
 
@@ -229,7 +231,8 @@ func TestCompensationRevertsInCorrectOrder(t *testing.T) {
 
 	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
-	assert.Equal(t, ErrPurchasingAsset2, err, "Expected ErrPurchasingAsset2")
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrPurchasingAsset2), "Expected ErrPurchasingAsset2")
 	assert.Greater(t, len(purchaseSvc.executedActions), 2, "Expected at least 3 actions")
 
 	lastAction := purchaseSvc.executedActions[len(purchaseSvc.executedActions)-1]
@@ -313,6 +316,31 @@ func TestCompensationDoesNotRunOnSuccess(t *testing.T) {
 	assert.Equal(t, 0, sellCount, "Expected 0 SELL actions (no compensation on success)")
 }
 
+func TestOrderFailsOnFirstAssetPurchaseWithoutCompensation(t *testing.T) {
+	quotationSvc := &MockQuotationService{}
+	riskSvc := &MockRiskService{approved: true}
+	purchaseSvc := NewMockPurchaseService()
+	purchaseSvc.failOnCallNum = 0
+
+	order := domain.OrderRequest{
+		Asset1: "ETH/USDT",
+		Asset2: "USD/BRL",
+		Qty:    1.5,
+	}
+
+	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
+
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrPurchasingAsset1), "Expected ErrPurchasingAsset1 when first asset purchase fails")
+
+	assert.Equal(t, 1, purchaseSvc.callCount, "Expected 1 purchase call (failed immediately on Asset 1)")
+
+	expectedActions := []domain.ActionType{
+		domain.ActionBuy,
+	}
+	assert.Equal(t, expectedActions, purchaseSvc.executedActions, "Expected only BUY (no compensation since nothing was bought)")
+}
+
 func TestTTLCheckedAfterRiskAnalysis(t *testing.T) {
 	quotationSvc := &MockQuotationService{
 		response: &domain.QuotationResponse{
@@ -332,6 +360,6 @@ func TestTTLCheckedAfterRiskAnalysis(t *testing.T) {
 
 	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
-	assert.Equal(t, ErrTTLExceeded, err, "Expected TTL to be checked")
+	assert.True(t, errors.Is(err, ErrTTLExceeded), "Expected TTL to be checked")
 	assert.Equal(t, 0, purchaseSvc.callCount, "Expected 0 purchase calls when TTL expired")
 }

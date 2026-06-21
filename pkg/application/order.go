@@ -81,7 +81,7 @@ func ExecuteOrder(order domain.OrderRequest, quotation ports.QuotationClient, ri
 			}
 			res, err := trade.Execute(buy)
 			if err != nil || !res.Success {
-				return ErrPurchasingAsset1
+				return fmt.Errorf("%w: %s", ErrPurchasingAsset1, order.Asset1)
 			}
 			return nil
 		},
@@ -114,7 +114,7 @@ func ExecuteOrder(order domain.OrderRequest, quotation ports.QuotationClient, ri
 			}
 			res, err := trade.Execute(buy)
 			if err != nil || !res.Success {
-				return ErrPurchasingAsset2
+				return fmt.Errorf("%w: %s", ErrPurchasingAsset2, order.Asset2)
 			}
 			return nil
 		},

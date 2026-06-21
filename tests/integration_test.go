@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"errors"
 	"testing"
 	"time"
 	"trading-saga/pkg/adapter/outbound"
@@ -104,7 +105,7 @@ func TestOrderWithTTLExceeded(t *testing.T) {
 	}
 
 	err = application.ExecuteOrder(order, quotationClient, riskClient, purchaseClient)
-	if err != application.ErrTTLExceeded {
+	if !errors.Is(err, application.ErrTTLExceeded) {
 		t.Errorf("Expected ErrTTLExceeded, got: %v", err)
 	}
 }
@@ -146,7 +147,7 @@ func TestOrderCompensatesOnPurchaseFailure(t *testing.T) {
 	}
 
 	err = application.ExecuteOrder(order, quotationClient, riskClient, purchaseClient)
-	if err != application.ErrPurchasingAsset1 {
+	if !errors.Is(err, application.ErrPurchasingAsset1) {
 		t.Errorf("Expected ErrPurchasingAsset1 (0%% purchase success), got: %v", err)
 	}
 }
