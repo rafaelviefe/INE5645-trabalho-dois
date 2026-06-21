@@ -1,8 +1,11 @@
 package tests
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
+	"sync/atomic"
 	"time"
 	"trading-saga/pkg/adapter/inbound"
 	"trading-saga/pkg/adapter/outbound"
@@ -11,13 +14,82 @@ import (
 	"trading-saga/pkg/tcp"
 )
 
+var nextBrokerPort int32 = 9900
+
 type TestServerPorts struct {
 	Quotation string
 	Risk      string
 	Purchase  string
+	Broker    string
+}
+
+type testBroker struct {
+	mu     sync.Mutex
+	events []map[string]any
+	seq    int
+}
+
+func newTestBroker() *testBroker {
+	return &testBroker{events: make([]map[string]any, 0, 100)}
+}
+
+func (b *testBroker) Handle(raw []byte) []byte {
+	var req map[string]any
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return nil
+	}
+
+	action, _ := req["action"].(string)
+	switch action {
+	case "pub":
+		b.mu.Lock()
+		b.seq++
+		evt := map[string]any{
+			"seq":       b.seq,
+			"channel":   req["channel"],
+			"data":      req["data"],
+			"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
+		}
+		b.events = append(b.events, evt)
+		b.mu.Unlock()
+		res, _ := json.Marshal(map[string]any{"ok": true, "seq": b.seq})
+		return res
+	case "pull":
+		channel, _ := req["channel"].(string)
+		since := 0
+		if s, ok := req["since"].(float64); ok {
+			since = int(s)
+		}
+		b.mu.Lock()
+		var result []map[string]any
+		for _, e := range b.events {
+			if e["channel"] == channel {
+				if seq, _ := e["seq"].(int); seq > since {
+					result = append(result, e)
+				}
+			}
+		}
+		b.mu.Unlock()
+		res, _ := json.Marshal(map[string]any{"events": result})
+		return res
+	}
+	return nil
+}
+
+func startTestBroker(port string) (*testBroker, string, func()) {
+	broker := newTestBroker()
+	server := tcp.NewServer(port, 10, broker.Handle)
+	go func() {
+		if err := server.Start(); err != nil {
+			log.Printf("Test broker error: %v", err)
+		}
+	}()
+	return broker, port, func() {}
 }
 
 func StartTestServices(ports TestServerPorts) (func(), error) {
+	_, _, stopBroker := startTestBroker(ports.Broker)
+
 	cfg := &config.Config{
 		Quotation: config.QuotationConfig{
 			Port:     ports.Quotation,
@@ -38,7 +110,7 @@ func StartTestServices(ports TestServerPorts) (func(), error) {
 			SuccessRate: 100.0,
 		},
 		Operation: config.OperationConfig{
-			BrokerAddr: "localhost:0",
+			BrokerAddr: "localhost" + ports.Broker,
 		},
 	}
 
@@ -73,6 +145,7 @@ func StartTestServices(ports TestServerPorts) (func(), error) {
 	time.Sleep(100 * time.Millisecond)
 
 	cleanup := func() {
+		stopBroker()
 		fmt.Println("Test services cleanup completed")
 	}
 
@@ -80,8 +153,12 @@ func StartTestServices(ports TestServerPorts) (func(), error) {
 }
 
 func StartCustomServices(quotationCfg config.QuotationConfig, riskCfg config.RiskConfig, purchaseCfg config.PurchaseConfig) (func(), error) {
+	brokerPort := atomic.AddInt32(&nextBrokerPort, 1)
+	brokerAddr := fmt.Sprintf(":%d", brokerPort)
+	_, _, stopBroker := startTestBroker(brokerAddr)
+
 	qs := service.NewQuotationService(quotationCfg)
-	publisher := outbound.NewPublisher("localhost:0")
+	publisher := outbound.NewPublisher("localhost" + brokerAddr)
 	quotationHandler := inbound.NewQuotationHandler(qs, publisher)
 	quotationServer := tcp.NewServer(quotationCfg.Port, 10, quotationHandler.Handle)
 	go func() {
@@ -111,6 +188,7 @@ func StartCustomServices(quotationCfg config.QuotationConfig, riskCfg config.Ris
 	time.Sleep(100 * time.Millisecond)
 
 	cleanup := func() {
+		stopBroker()
 		fmt.Println("Test services cleanup completed")
 	}
 
