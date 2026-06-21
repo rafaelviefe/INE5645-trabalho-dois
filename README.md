@@ -8,45 +8,27 @@
 
 Para executar este projeto em uma máquina sem configurações prévias, você precisará das seguintes ferramentas:
 
-1. **Go (Golang) v1.22+**: Necessário para compilar e rodar todos os serviços.
-   * *Linux*: `sudo apt install golang`
-   * *Windows/Mac*: Baixe o instalador no [site oficial do Go](https://go.dev/dl/).
+1. **Make**: (Opcional, mas recomendado) Para utilizar os atalhos de execução. No Linux/Mac geralmente já vem instalado (ou `sudo apt install make`). No Windows, instale via `choco install make` ou utilize os comandos puros listados no `Makefile`.
 
-2. **Make**: (Opcional, mas recomendado) Para utilizar os atalhos de execução. No Linux/Mac geralmente já vem instalado (ou `sudo apt install make`). No Windows, instale via `choco install make` ou utilize os comandos puros listados no `Makefile`.
-
-3. **Docker e Docker Compose**: (Alternativo) Necessário apenas se quiser rodar os microsserviços em containers isolados. Instale o [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/Mac) ou via gerenciador de pacotes no Linux (`sudo apt install docker-compose-plugin`).
+2. **Docker e Docker Compose**: (Alternativo) Necessário apenas se quiser rodar os microsserviços em containers isolados. Instale o [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/Mac) ou via gerenciador de pacotes no Linux (`sudo apt install docker-compose-plugin`).
 
 ---
 
 ## Como Executar o Projeto
 
-Há duas formas de rodar o projeto.
-
-### Modo Rápido (Recomendado) - `make run-all`
-
-```bash
-make run-all
-```
-
-Isso sobe o broker, cotação, risco e compra em background e abre o CLI interativo. Para sair, digite `exit` ou pressione `Ctrl+C`.
-
-### Monitor de Eventos
-
-Em outro terminal:
-
-```bash
-make run-monitor
-```
-
-O monitor se conecta ao broker, faz polling a cada 1s e exibe eventos em tempo real, salvando em `trace.jsonl`.
-
-### Modo Alternativo - Docker
-
 ```bash
 make docker-up
+```
+
+Em outro terminal, execute o monitor de eventos:
+
+```bash
+make run-monitor 
+```
+
+Em outro terminal, interaja com o CLI:
+```bash
 make run-cli
-make run-monitor   # opcional: monitorar eventos
-make docker-down
 ```
 
 ---
@@ -88,14 +70,8 @@ Com `quotation_addrs`, `risk_addrs` e `purchase_addrs` configurados com múltipl
 
 ### Padrões de Projeto
 
-1. **Length-Prefixed Framing** (`pkg/tcp/message.go`): Protocolo TCP com cabeçalho de 4 bytes indicando tamanho do payload.
+1. **SAGA Orchestrator** (`pkg/application/saga/orchestrator.go`): Orquestrador centralizado que coordena cotação → TTL → risco → TTL → compra 1 → compra 2. Se uma compra falha após outra ter sido efetivada, o orquestrador emite uma venda (SELL) para estornar.
 
-2. **Worker Pool** (`pkg/tcp/server.go`): Semáforo com channel bufferizado limita goroutines concorrentes.
+2. **Round-Robin Pool** (`pkg/adapter/outbound/pool.go`): Distribui requisições entre réplicas, com cooldown para endereços com falha de rede.
 
-3. **SAGA Orchestrator** (`pkg/application/saga/orchestrator.go`): Orquestrador centralizado que coordena cotação → TTL → risco → TTL → compra 1 → compra 2.
-
-4. **Compensating Transaction**: Se uma compra falha após outra ter sido efetivada, o orquestrador emite uma venda (SELL) para estornar.
-
-5. **Round-Robin Pool** (`pkg/adapter/outbound/pool.go`): Distribui requisições entre réplicas, com cooldown para endereços com falha de rede.
-
-6. **PubSub (Event Publisher)** (`pkg/adapter/outbound/pubsub.go`): Fire-and-forget, publicação assíncrona para o broker.
+3. **PubSub (Event Publisher)** (`pkg/adapter/outbound/pubsub.go`): Fire-and-forget, publicação assíncrona para o broker.
