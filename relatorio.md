@@ -9,7 +9,7 @@
 
 ## 1. Introdução
 
-Este relatório descreve a arquitetura e implementação de um protótipo de sistema de operação em mercado automatizado (*trading*) como parte do Trabalho 2 da disciplina INE 5645. O sistema simula um fluxo de compra de dois ativos a partir de dados recebidos de sistemas de cotação e análise de risco, utilizando comunicação por troca de mensagens entre processos distribuídos.
+Este relatório descreve a arquitetura e implementação de um protótipo de sistema de operação em mercado automatizado (*trading*) como parte do Trabalho 2 da disciplina INE 5645. O sistema simula um fluxo de compra de dois ativos a partir de dados recebidos de sistemas de cotação e análise de risco, utilizando processos distribuídos.
 
 O sistema é composto por seis processos independentes:
 
@@ -20,7 +20,7 @@ O sistema é composto por seis processos independentes:
 - **Broker (PubSub):** barramento de eventos que recebe publicações dos serviços e as disponibiliza para consumidores;
 - **Monitor:** consumidor de eventos que persiste o histórico em `trace.jsonl` e exibe em tempo real.
 
-A comunicação entre todos os processos é feita via **sockets Berkeley (TCP) puros**, implementados do zero em Go, sem uso de bibliotecas externas de comunicação. Seis padrões de projeto para programação distribuída foram aplicados: **Replicas com Load Balancing (Round-Robin Pool)**, **SAGA (Orchestrator)** com **Transações Compensatórias**, e **PubSub**.
+A comunicação entre todos os processos é feita via **sockets Berkeley (TCP) puros**, implementados do zero em Go, sem uso de bibliotecas externas de comunicação. Quatro padrões de projeto para programação distribuída foram aplicados: **Replicas com Load Balancing (Round-Robin Pool)**, **SAGA (Orchestrator)** com **Transações Compensatórias**, e **PubSub**.
 
 ---
 
@@ -61,7 +61,7 @@ O Broker expõe duas operações via TCP:
 8. Verifica **TTL**
 9. Compra **Ativo 2** no sistema de **Compra**
 10. Se todas as etapas bem-sucedidas → operação concluída
-11. Se qualquer compra falhar → aciona **compensação** (venda LIFO dos ativos já comprados)
+11. Se qualquer compra falhar → aciona **compensação** (venda Last In First Out dos ativos já comprados)
 
 O **Monitor** faz polling a cada 1 segundo no Broker (`pull`), obtém eventos novos (seq > since), escreve em `trace.jsonl` e exibe na tela.
 
