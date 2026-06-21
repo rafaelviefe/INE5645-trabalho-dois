@@ -24,7 +24,7 @@
     "quotation_addrs": ["localhost:8081", "localhost:8084"],
     "risk_addrs": ["localhost:8082", "localhost:8085"],
     "purchase_addrs": ["localhost:8083", "localhost:8086"],
-    "broker_addr": "localhost:8090",
+    "broker_addr": "broker:8090",
     "pool_cooldown_ms": 2000
   }
 }

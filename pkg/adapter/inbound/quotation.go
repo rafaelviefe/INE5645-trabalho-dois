@@ -2,6 +2,7 @@ package inbound
 
 import (
 	"encoding/json"
+	"log/slog"
 	"trading-saga/pkg/domain"
 	"trading-saga/pkg/domain/ports"
 )
@@ -34,8 +35,11 @@ func (h *QuotationHandler) Handle(raw []byte) []byte {
 		"price2": res.Price2,
 		"ttl_ms": res.TTLms,
 	}
-	_ = h.publisher.Publish("saga", event)
-
+	err = h.publisher.Publish("saga", event)
+	if err != nil {
+		slog.Error("failed to publish quotation event", "error", err)
+		return nil
+	}
 	data, _ := json.Marshal(res)
 	return data
 }
