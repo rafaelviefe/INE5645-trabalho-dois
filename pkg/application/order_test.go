@@ -1,4 +1,4 @@
-package saga
+package application
 
 import (
 	"errors"
@@ -6,9 +6,9 @@ import (
 	"trading-saga/pkg/domain"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// MockQuotationService for testing
 type MockQuotationService struct {
 	shouldFail bool
 	response   *domain.QuotationResponse
@@ -28,7 +28,6 @@ func (m *MockQuotationService) Get(req domain.QuotationRequest) (*domain.Quotati
 	}, nil
 }
 
-// MockRiskService for testing
 type MockRiskService struct {
 	shouldFail bool
 	approved   bool
@@ -43,18 +42,17 @@ func (m *MockRiskService) Evaluate(req domain.RiskRequest) (*domain.RiskResponse
 	}, nil
 }
 
-// MockPurchaseService for testing
 type MockPurchaseService struct {
 	shouldFail      bool
 	successRate     float64
 	callCount       int
-	failOnCallNum   int // Fail on specific call number (0-indexed), -1 means never fail
+	failOnCallNum   int
 	executedActions []domain.ActionType
 }
 
 func NewMockPurchaseService() *MockPurchaseService {
 	return &MockPurchaseService{
-		failOnCallNum: -1, // Default: never fail on a specific call
+		failOnCallNum: -1,
 	}
 }
 
@@ -70,22 +68,17 @@ func (m *MockPurchaseService) Execute(req domain.TradeExecution) (*domain.TradeR
 		return &domain.TradeResponse{Success: false}, nil
 	}
 
-	// For SELL (compensation), always succeed
 	if req.Action == domain.ActionSell {
 		return &domain.TradeResponse{Success: true}, nil
 	}
 
-	// For BUY, use success rate
 	return &domain.TradeResponse{Success: true}, nil
 }
 
-// TestSuccessfulOrderExecution - happy path
 func TestSuccessfulOrderExecution(t *testing.T) {
 	quotationSvc := &MockQuotationService{}
 	riskSvc := &MockRiskService{approved: true}
 	purchaseSvc := NewMockPurchaseService()
-
-	orchestrator := NewOrchestrator(quotationSvc, riskSvc, purchaseSvc)
 
 	order := domain.OrderRequest{
 		Asset1: "ETH/USDT",
@@ -93,7 +86,7 @@ func TestSuccessfulOrderExecution(t *testing.T) {
 		Qty:    1.5,
 	}
 
-	err := orchestrator.ExecuteOrder(order)
+	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
 	assert.NoError(t, err, "Expected successful order execution")
 	assert.Equal(t, 2, purchaseSvc.callCount, "Expected 2 purchase calls (buy both assets)")
@@ -102,76 +95,62 @@ func TestSuccessfulOrderExecution(t *testing.T) {
 	assert.Equal(t, domain.ActionBuy, purchaseSvc.executedActions[1], "Second action should be BUY")
 }
 
-// TestOrderFailsOnQuotationError
 func TestOrderFailsOnQuotationError(t *testing.T) {
 	quotationSvc := &MockQuotationService{shouldFail: true}
 	riskSvc := &MockRiskService{approved: true}
 	purchaseSvc := NewMockPurchaseService()
 
-	orchestrator := NewOrchestrator(quotationSvc, riskSvc, purchaseSvc)
-
 	order := domain.OrderRequest{
 		Asset1: "ETH/USDT",
 		Asset2: "USD/BRL",
 		Qty:    1.5,
 	}
 
-	err := orchestrator.ExecuteOrder(order)
+	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
 	assert.Error(t, err, "Expected error on quotation failure")
 	assert.Equal(t, 0, purchaseSvc.callCount, "Expected 0 purchase calls when quotation fails")
 }
 
-// TestOrderFailsOnRiskRejection
 func TestOrderFailsOnRiskRejection(t *testing.T) {
 	quotationSvc := &MockQuotationService{}
 	riskSvc := &MockRiskService{approved: false}
 	purchaseSvc := NewMockPurchaseService()
 
-	orchestrator := NewOrchestrator(quotationSvc, riskSvc, purchaseSvc)
-
 	order := domain.OrderRequest{
 		Asset1: "ETH/USDT",
 		Asset2: "USD/BRL",
 		Qty:    1.5,
 	}
 
-	err := orchestrator.ExecuteOrder(order)
+	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
-	assert.Equal(t, ErrRiskReproved, err, "Expected ErrRiskReproved")
+	assert.True(t, errors.Is(err, ErrRiskReproved), "Expected ErrRiskReproved")
 	assert.Equal(t, 0, purchaseSvc.callCount, "Expected 0 purchase calls when risk is rejected")
 }
 
-// TestOrderFailsOnRiskError
 func TestOrderFailsOnRiskError(t *testing.T) {
 	quotationSvc := &MockQuotationService{}
 	riskSvc := &MockRiskService{shouldFail: true}
 	purchaseSvc := NewMockPurchaseService()
 
-	orchestrator := NewOrchestrator(quotationSvc, riskSvc, purchaseSvc)
-
 	order := domain.OrderRequest{
 		Asset1: "ETH/USDT",
 		Asset2: "USD/BRL",
 		Qty:    1.5,
 	}
 
-	err := orchestrator.ExecuteOrder(order)
+	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
 	assert.Error(t, err, "Expected error on risk service failure")
 	assert.Equal(t, 0, purchaseSvc.callCount, "Expected 0 purchase calls when risk service fails")
 }
 
-// TestOrderCompensatesOnFirstAssetPurchaseFailure - CRITICAL TEST
-// This tests the SAGA compensation: if Asset1 buy succeeds but Asset2 buy fails,
-// Asset1 must be sold back
 func TestOrderCompensatesOnFirstAssetPurchaseFailure(t *testing.T) {
 	quotationSvc := &MockQuotationService{}
 	riskSvc := &MockRiskService{approved: true}
 	purchaseSvc := NewMockPurchaseService()
-	purchaseSvc.failOnCallNum = 1 // Fail on 2nd purchase call (Asset2)
-
-	orchestrator := NewOrchestrator(quotationSvc, riskSvc, purchaseSvc)
+	purchaseSvc.failOnCallNum = 1
 
 	order := domain.OrderRequest{
 		Asset1: "ETH/USDT",
@@ -179,86 +158,70 @@ func TestOrderCompensatesOnFirstAssetPurchaseFailure(t *testing.T) {
 		Qty:    1.5,
 	}
 
-	err := orchestrator.ExecuteOrder(order)
+	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
-	assert.Equal(t, ErrPurchasingAsset2, err, "Expected ErrPurchasingAsset2 when second asset purchase fails")
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrPurchasingAsset2), "Expected ErrPurchasingAsset2 when second asset purchase fails")
 
-	// Verify the SAGA compensation: BUY Asset1, BUY Asset2 (fail), SELL Asset1 (compensation)
 	assert.Equal(t, 3, purchaseSvc.callCount, "Expected 3 purchase calls (BUY Asset1, BUY Asset2, SELL Asset1 compensation)")
 
-	// Verify the sequence: BUY, BUY, SELL
 	expectedActions := []domain.ActionType{
-		domain.ActionBuy,  // Asset1 purchase
-		domain.ActionBuy,  // Asset2 purchase (fails)
-		domain.ActionSell, // Asset1 compensation (reverses the first BUY)
+		domain.ActionBuy,
+		domain.ActionBuy,
+		domain.ActionSell,
 	}
 
 	assert.Equal(t, expectedActions, purchaseSvc.executedActions, "Expected BUY, BUY, SELL sequence")
 }
 
-// TestOrderSucceedsWhenBothAssetsPurchased - happy path with both purchases
 func TestOrderSucceedsWhenBothAssetsPurchased(t *testing.T) {
 	quotationSvc := &MockQuotationService{}
 	riskSvc := &MockRiskService{approved: true}
 	purchaseSvc := NewMockPurchaseService()
 
-	orchestrator := NewOrchestrator(quotationSvc, riskSvc, purchaseSvc)
-
 	order := domain.OrderRequest{
 		Asset1: "ETH/USDT",
 		Asset2: "USD/BRL",
 		Qty:    1.5,
 	}
 
-	err := orchestrator.ExecuteOrder(order)
+	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
 	assert.NoError(t, err, "Expected successful order when both assets purchase")
 	assert.Equal(t, 2, purchaseSvc.callCount, "Expected exactly 2 purchase calls")
-
-	// Verify exactly 2 BUY calls, no compensation
 	assert.Len(t, purchaseSvc.executedActions, 2, "Expected 2 actions (no compensation)")
 	assert.Equal(t, domain.ActionBuy, purchaseSvc.executedActions[0], "First action should be BUY")
 	assert.Equal(t, domain.ActionBuy, purchaseSvc.executedActions[1], "Second action should be BUY")
 }
 
-// TestTTLExceededImmediately - tests TTL check right after quotation
-// Uses a negative TTL to simulate an already-expired quote
 func TestTTLExceededImmediately(t *testing.T) {
-	// Create a quotation response with negative TTL (already expired)
 	quotationSvc := &MockQuotationService{
 		response: &domain.QuotationResponse{
 			Price1: 50.0,
 			Price2: 5.0,
-			TTLms:  -100, // Negative TTL - will be expired immediately
+			TTLms:  -100,
 		},
 	}
 	riskSvc := &MockRiskService{approved: true}
 	purchaseSvc := NewMockPurchaseService()
 
-	orchestrator := NewOrchestrator(quotationSvc, riskSvc, purchaseSvc)
-
 	order := domain.OrderRequest{
 		Asset1: "ETH/USDT",
 		Asset2: "USD/BRL",
 		Qty:    1.5,
 	}
 
-	err := orchestrator.ExecuteOrder(order)
+	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
-	assert.Equal(t, ErrTTLExceeded, err, "Expected ErrTTLExceeded when TTL is negative")
+	assert.True(t, errors.Is(err, ErrTTLExceeded), "Expected ErrTTLExceeded when TTL is negative")
 	assert.Equal(t, 0, purchaseSvc.callCount, "Expected 0 purchase calls when TTL expired")
 }
 
-// TestCompensationRevertsInCorrectOrder - CRITICAL TEST
-// Verifies that compensation happens in LIFO order (Last In, First Out)
-// If we bought Asset1 then Asset2, we must sell Asset2 then Asset1
 func TestCompensationRevertsInCorrectOrder(t *testing.T) {
 	quotationSvc := &MockQuotationService{}
 	riskSvc := &MockRiskService{approved: true}
 	purchaseSvc := NewMockPurchaseService()
-	purchaseSvc.failOnCallNum = 1 // Fail on Asset2 purchase
-
-	orchestrator := NewOrchestrator(quotationSvc, riskSvc, purchaseSvc)
+	purchaseSvc.failOnCallNum = 1
 
 	order := domain.OrderRequest{
 		Asset1: "ETH/USDT",
@@ -266,51 +229,37 @@ func TestCompensationRevertsInCorrectOrder(t *testing.T) {
 		Qty:    1.5,
 	}
 
-	err := orchestrator.ExecuteOrder(order)
+	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
-	assert.Equal(t, ErrPurchasingAsset2, err, "Expected ErrPurchasingAsset2")
-
-	// Verify LIFO compensation order
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrPurchasingAsset2), "Expected ErrPurchasingAsset2")
 	assert.Greater(t, len(purchaseSvc.executedActions), 2, "Expected at least 3 actions")
 
-	// Last action should be SELL (the compensation)
 	lastAction := purchaseSvc.executedActions[len(purchaseSvc.executedActions)-1]
 	assert.Equal(t, domain.ActionSell, lastAction, "Last action should be SELL (compensation)")
-
-	// First two should be BUY
 	assert.Equal(t, domain.ActionBuy, purchaseSvc.executedActions[0], "First action should be BUY")
 	assert.Equal(t, domain.ActionBuy, purchaseSvc.executedActions[1], "Second action should be BUY")
 }
 
-// TestOrderFailsOnPurchaseServiceError
 func TestOrderFailsOnPurchaseServiceError(t *testing.T) {
 	quotationSvc := &MockQuotationService{}
 	riskSvc := &MockRiskService{approved: true}
 	purchaseSvc := NewMockPurchaseService()
 	purchaseSvc.shouldFail = true
 
-	orchestrator := NewOrchestrator(quotationSvc, riskSvc, purchaseSvc)
-
 	order := domain.OrderRequest{
 		Asset1: "ETH/USDT",
 		Asset2: "USD/BRL",
 		Qty:    1.5,
 	}
 
-	err := orchestrator.ExecuteOrder(order)
+	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
 	assert.Error(t, err, "Expected error on purchase service failure")
 	assert.Equal(t, 1, purchaseSvc.callCount, "Expected 1 purchase call (failed immediately)")
 }
 
-// TestMultipleOrdersIndependent - verifies orchestrator is stateless
 func TestMultipleOrdersIndependent(t *testing.T) {
-	orchestrator := NewOrchestrator(
-		&MockQuotationService{},
-		&MockRiskService{approved: true},
-		NewMockPurchaseService(),
-	)
-
 	order1 := domain.OrderRequest{
 		Asset1: "ETH/USDT",
 		Asset2: "USD/BRL",
@@ -323,20 +272,25 @@ func TestMultipleOrdersIndependent(t *testing.T) {
 		Qty:    2.5,
 	}
 
-	err1 := orchestrator.ExecuteOrder(order1)
-	err2 := orchestrator.ExecuteOrder(order2)
+	err1 := ExecuteOrder(order1,
+		&MockQuotationService{},
+		&MockRiskService{approved: true},
+		NewMockPurchaseService(),
+	)
+	err2 := ExecuteOrder(order2,
+		&MockQuotationService{},
+		&MockRiskService{approved: true},
+		NewMockPurchaseService(),
+	)
 
 	assert.NoError(t, err1, "First order should succeed")
 	assert.NoError(t, err2, "Second order should succeed")
 }
 
-// TestCompensationDoesNotRunOnSuccess - verifies cleanup behavior
 func TestCompensationDoesNotRunOnSuccess(t *testing.T) {
 	quotationSvc := &MockQuotationService{}
 	riskSvc := &MockRiskService{approved: true}
 	purchaseSvc := NewMockPurchaseService()
-
-	orchestrator := NewOrchestrator(quotationSvc, riskSvc, purchaseSvc)
 
 	order := domain.OrderRequest{
 		Asset1: "ETH/USDT",
@@ -344,11 +298,10 @@ func TestCompensationDoesNotRunOnSuccess(t *testing.T) {
 		Qty:    1.5,
 	}
 
-	err := orchestrator.ExecuteOrder(order)
+	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
 	assert.NoError(t, err, "Expected successful order")
 
-	// Should have exactly 2 BUY calls, 0 SELL calls
 	buyCount := 0
 	sellCount := 0
 	for _, action := range purchaseSvc.executedActions {
@@ -363,23 +316,11 @@ func TestCompensationDoesNotRunOnSuccess(t *testing.T) {
 	assert.Equal(t, 0, sellCount, "Expected 0 SELL actions (no compensation on success)")
 }
 
-// TestTTLCheckedAfterEachStep - verifies TTL is enforced after risk analysis
-// Uses negative TTL to simulate expiration between risk check and first purchase
-func TestTTLCheckedAfterRiskAnalysis(t *testing.T) {
-	// This test verifies that TTL is checked after risk analysis
-	// Since we can't easily simulate time passing during the orchestrator execution,
-	// we use a negative TTL which will be expired by the time the first purchase is attempted
-	quotationSvc := &MockQuotationService{
-		response: &domain.QuotationResponse{
-			Price1: 50.0,
-			Price2: 5.0,
-			TTLms:  -100, // Already expired
-		},
-	}
+func TestOrderFailsOnFirstAssetPurchaseWithoutCompensation(t *testing.T) {
+	quotationSvc := &MockQuotationService{}
 	riskSvc := &MockRiskService{approved: true}
 	purchaseSvc := NewMockPurchaseService()
-
-	orchestrator := NewOrchestrator(quotationSvc, riskSvc, purchaseSvc)
+	purchaseSvc.failOnCallNum = 0
 
 	order := domain.OrderRequest{
 		Asset1: "ETH/USDT",
@@ -387,8 +328,38 @@ func TestTTLCheckedAfterRiskAnalysis(t *testing.T) {
 		Qty:    1.5,
 	}
 
-	err := orchestrator.ExecuteOrder(order)
+	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
 
-	assert.Equal(t, ErrTTLExceeded, err, "Expected TTL to be checked")
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, ErrPurchasingAsset1), "Expected ErrPurchasingAsset1 when first asset purchase fails")
+
+	assert.Equal(t, 1, purchaseSvc.callCount, "Expected 1 purchase call (failed immediately on Asset 1)")
+
+	expectedActions := []domain.ActionType{
+		domain.ActionBuy,
+	}
+	assert.Equal(t, expectedActions, purchaseSvc.executedActions, "Expected only BUY (no compensation since nothing was bought)")
+}
+
+func TestTTLCheckedAfterRiskAnalysis(t *testing.T) {
+	quotationSvc := &MockQuotationService{
+		response: &domain.QuotationResponse{
+			Price1: 50.0,
+			Price2: 5.0,
+			TTLms:  -100,
+		},
+	}
+	riskSvc := &MockRiskService{approved: true}
+	purchaseSvc := NewMockPurchaseService()
+
+	order := domain.OrderRequest{
+		Asset1: "ETH/USDT",
+		Asset2: "USD/BRL",
+		Qty:    1.5,
+	}
+
+	err := ExecuteOrder(order, quotationSvc, riskSvc, purchaseSvc)
+
+	assert.True(t, errors.Is(err, ErrTTLExceeded), "Expected TTL to be checked")
 	assert.Equal(t, 0, purchaseSvc.callCount, "Expected 0 purchase calls when TTL expired")
 }

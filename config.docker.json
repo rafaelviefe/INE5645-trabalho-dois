@@ -9,22 +9,31 @@
     "port": ":8082",
     "min_sleep_ms": 50,
     "max_sleep_ms": 200,
-    "success_rate": 90.0
+    "success_rate": 100.0
   },
   "purchase": {
     "port": ":8083",
     "min_sleep_ms": 100,
     "max_sleep_ms": 300,
-    "success_rate": 80.0
+    "success_rate": 50.0
   },
   "broker": {
     "port": ":8090"
   },
   "operation": {
-    "quotation_addrs": ["localhost:8081", "localhost:8084"],
-    "risk_addrs": ["localhost:8082", "localhost:8085"],
-    "purchase_addrs": ["localhost:8083", "localhost:8086"],
-    "broker_addr": "localhost:8090",
+    "quotation_addrs": [
+      "localhost:8081",
+      "localhost:8084"
+    ],
+    "risk_addrs": [
+      "localhost:8082",
+      "localhost:8085"
+    ],
+    "purchase_addrs": [
+      "localhost:8083",
+      "localhost:8086"
+    ],
+    "broker_addr": "broker:8090",
     "pool_cooldown_ms": 2000
   }
 }

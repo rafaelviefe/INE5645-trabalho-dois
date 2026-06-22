@@ -1,6 +1,14 @@
 version: "3.8"
 
 services:
+  broker:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: broker
+    ports:
+      - "8090:8090"
+
   quotation:
     build:
       context: .
@@ -8,6 +16,14 @@ services:
         SERVICE_NAME: quotation
     ports:
       - "8081:8081"
+
+  quotation2:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: quotation
+    ports:
+      - "8084:8081"
 
   risk:
     build:
@@ -17,6 +33,14 @@ services:
     ports:
       - "8082:8082"
 
+  risk2:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: risk
+    ports:
+      - "8085:8082"
+
   purchase:
     build:
       context: .
@@ -24,3 +48,11 @@ services:
         SERVICE_NAME: trade
     ports:
       - "8083:8083"
+
+  purchase2:
+    build:
+      context: .
+      args:
+        SERVICE_NAME: trade
+    ports:
+      - "8086:8083"

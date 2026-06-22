@@ -8,10 +8,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"trading-saga/pkg/adapter/outbound"
-	"trading-saga/pkg/application/saga"
+	"trading-saga/pkg/application"
 	"trading-saga/pkg/config"
 	"trading-saga/pkg/domain"
+	"trading-saga/pkg/domain/ports"
 )
 
 func main() {
@@ -20,11 +22,11 @@ func main() {
 		log.Fatalf("Erro ao carregar config: %v", err)
 	}
 
-	quotationClient := outbound.NewQuotationClient(cfg.Operation.QuotationAddr)
-	riskClient := outbound.NewRiskClient(cfg.Operation.RiskAddr)
-	purchaseClient := outbound.NewTradeClient(cfg.Operation.PurchaseAddr)
+	poolCooldown := time.Duration(cfg.Operation.PoolCooldownMs) * time.Millisecond
 
-	orchestrator := saga.NewOrchestrator(quotationClient, riskClient, purchaseClient)
+	var quotationClient ports.QuotationClient = outbound.NewQuotationClient(cfg.Operation.QuotationAddrs, poolCooldown)
+	var riskClient ports.RiskClient = outbound.NewRiskClient(cfg.Operation.RiskAddrs, poolCooldown)
+	var purchaseClient ports.TradeClient = outbound.NewTradeClient(cfg.Operation.PurchaseAddrs, poolCooldown)
 
 	fmt.Println("\033[36m===================================================\033[0m")
 	fmt.Println("\033[36m   SISTEMA DE OPERAÇÃO - TRADING SAGA (CLI)        \033[0m")
@@ -78,7 +80,7 @@ func main() {
 			}
 
 			fmt.Println("\033[34m[SAGA] Iniciando transação distribuída...\033[0m")
-			err = orchestrator.ExecuteOrder(req)
+			err = application.ExecuteOrder(req, quotationClient, riskClient, purchaseClient)
 
 			if err != nil {
 				fmt.Printf("\033[31m[SAGA] OPERAÇÃO ABORTADA / ROLLBACK: %v\033[0m\n", err)
@@ -117,7 +119,7 @@ func main() {
 						Asset2: asset2,
 						Qty:    qty,
 					}
-					err := orchestrator.ExecuteOrder(req)
+					err := application.ExecuteOrder(req, quotationClient, riskClient, purchaseClient)
 					if err != nil {
 						fmt.Printf("\033[31m[SAGA - Ordem %d] ABORTADA: %v\033[0m\n", id, err)
 					} else {

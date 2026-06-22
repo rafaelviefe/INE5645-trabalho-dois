@@ -26,16 +26,23 @@ type PurchaseConfig struct {
 	SuccessRate float64 `json:"success_rate"`
 }
 
+type BrokerConfig struct {
+	Port string `json:"port"`
+}
+
 type OperationConfig struct {
-	QuotationAddr string `json:"quotation_addr"`
-	RiskAddr      string `json:"risk_addr"`
-	PurchaseAddr  string `json:"purchase_addr"`
+	QuotationAddrs []string `json:"quotation_addrs"`
+	RiskAddrs      []string `json:"risk_addrs"`
+	PurchaseAddrs  []string `json:"purchase_addrs"`
+	BrokerAddr     string   `json:"broker_addr"`
+	PoolCooldownMs int      `json:"pool_cooldown_ms"`
 }
 
 type Config struct {
 	Quotation QuotationConfig `json:"quotation"`
 	Risk      RiskConfig      `json:"risk"`
 	Purchase  PurchaseConfig  `json:"purchase"`
+	Broker    BrokerConfig    `json:"broker"`
 	Operation OperationConfig `json:"operation"`
 }
 

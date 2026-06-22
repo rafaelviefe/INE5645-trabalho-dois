@@ -13,3 +13,7 @@ type RiskClient interface {
 type TradeClient interface {
 	Execute(req domain.TradeExecution) (*domain.TradeResponse, error)
 }
+
+type EventPublisher interface {
+	Publish(channel string, data any) error
+}
